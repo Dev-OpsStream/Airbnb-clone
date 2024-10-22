@@ -23,15 +23,10 @@
         name: '*'
         state: latest
 
-    - name: Update DNF repositories
-      dnf:
-        name: "*"
-        state: latest
-
     - name: Install required dependencies
-      dnf:
+      yum:
         name:
-          - java-17-amazon-corretto.x86_64
+          - java-17-amazon-corretto
           - wget
         state: present
 
@@ -39,10 +34,13 @@
       yum_repository:
         name: jenkins
         description: Jenkins
-        baseurl: https://pkg.jenkins.io/redhat-stable/jenkins.repo
+        baseurl: https://pkg.jenkins.io/redhat-stable/
         gpgcheck: yes
         enabled: yes
         gpgkey: https://pkg.jenkins.io/redhat/jenkins.io.key
+
+    - name: Clean YUM cache
+      command: yum clean all
 
     - name: Install Jenkins
       yum:
@@ -56,7 +54,7 @@
         enabled: true
 
     - name: Install unzip
-      dnf:
+      yum:
         name: unzip
         state: present
 
@@ -126,6 +124,7 @@
       user:
         name: sonarqube
         system: yes
+
     - name: Change ownership of SonarQube directory
       file:
         path: /opt/sonarqube-9.9.1.69595
@@ -159,5 +158,3 @@
         name: sonarqube
         enabled: yes
         state: started
-
-                                          
