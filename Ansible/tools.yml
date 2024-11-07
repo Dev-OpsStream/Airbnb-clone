@@ -1,160 +1,195 @@
 ---
-- name: Setup Docker, Jenkins, and Docker Slim
-  hosts: all
-  become: true
-  tasks:
+  - name: Setup Docker, Jenkins, and Docker Slim
+    hosts: all
+    become: true
+    tasks:
+  
+      - name: Gather facts
+        setup:
+  
+      - name: Install Docker
+        yum:
+          name: docker
+          state: present
+  
+      - name: Start and enable Docker service
+        systemd:
+          name: docker
+          state: started
+          enabled: true
+  
+      - name: Update all packages
+        yum:
+          name: '*'
+          state: latest
+  
+      - name: Install required dependencies
+        yum:
+          name:
+            - java-17-amazon-corretto
+            - wget
+          state: present
+  
+      - name: Add Jenkins repository
+        yum_repository:
+          name: jenkins
+          description: Jenkins
+          baseurl: https://pkg.jenkins.io/redhat-stable/
+          gpgcheck: yes
+          enabled: yes
+          gpgkey: https://pkg.jenkins.io/redhat/jenkins.io.key
+  
+      - name: Clean YUM cache
+        command: yum clean all
+  
+      - name: Install Jenkins
+        yum:
+          name: jenkins
+          state: present
+  
+      - name: Start and enable Jenkins
+        systemd:
+          name: jenkins
+          state: started
+          enabled: true
+  
+      - name: Install unzip
+        yum:
+          name: unzip
+          state: present
+  
+      - name: Download Docker Slim
+        get_url:
+          url: https://github.com/slimtoolkit/slim/releases/download/1.40.11/dist_linux.tar.gz
+          dest: /tmp/ds.tar.gz
+  
+      - name: Extract Docker Slim
+        unarchive:
+          src: /tmp/ds.tar.gz
+          dest: /tmp/
+          remote_src: yes
+  
+      - name: Ensure Docker Slim binaries exist after extraction
+        command: ls -l /tmp/dist_linux/
+        register: ls_output
+  
+      - name: Debug output of extracted files
+        debug:
+          var: ls_output.stdout_lines
+  
+      - name: Move Docker Slim binary if it exists
+        command: mv /tmp/dist_linux/slim /usr/local/bin/docker-slim
+        when: "'slim' in ls_output.stdout"
+  
+      - name: Move Docker Slim Sensor binary if it exists
+        command: mv /tmp/dist_linux/slim-sensor /usr/local/bin/docker-slim-sensor
+        when: "'slim-sensor' in ls_output.stdout"
+  
+      - name: Check if Docker Slim binary exists
+        stat:
+          path: /usr/local/bin/docker-slim
+        register: slim_binary
+  
+      - name: Fail if Docker Slim binary does not exist
+        fail:
+          msg: "Docker Slim binary is not installed correctly."
+        when: not slim_binary.stat.exists
+  
+      - name: Make Docker Slim executable
+        command: chmod +x /usr/local/bin/docker-slim
+  
+      - name: Make Docker Slim Sensor executable
+        command: chmod +x /usr/local/bin/docker-slim-sensor
+  
+      - name: Print installed versions
+        command: /usr/local/bin/docker-slim --version
+        register: slim_version
+  
+      - name: Show Docker Slim version
+        debug:
+          var: slim_version.stdout
+  
+      - name: Download SonarQube
+        get_url:
+          url: "https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-9.9.1.69595.zip"
+          dest: /tmp/sonarqube.zip
+  
+      - name: Extract SonarQube
+        unarchive:
+          src: /tmp/sonarqube.zip
+          dest: /opt/
+          remote_src: yes
+  
+      - name: Create SonarQube user
+        user:
+          name: sonarqube
+          system: yes
+  
+      - name: Change ownership of SonarQube directory
+        file:
+          path: /opt/sonarqube-9.9.1.69595
+          owner: sonarqube
+          group: sonarqube
+          state: directory
+          recurse: yes
+  
+      - name: Set up SonarQube service
+        copy:
+          dest: /etc/systemd/system/sonarqube.service
+          content: |
+            [Unit]
+            Description=SonarQube service
+            After=syslog.target network.target
+  
+            [Service]
+            Type=forking
+            ExecStart=/opt/sonarqube-9.9.1.69595/bin/linux-x86-64/sonar.sh start
+            ExecStop=/opt/sonarqube-9.9.1.69595/bin/linux-x86-64/sonar.sh stop
+            User=sonarqube
+            Group=sonarqube
+            Restart=always
+  
+            [Install]
+            WantedBy=multi-user.target
+  
+      - name: Reload systemd and start SonarQube service
+        systemd:
+          daemon_reload: yes
+          name: sonarqube
+          enabled: yes
+          state: started
 
-    - name: Gather facts
-      setup:
+      - name: Retrieve latest stable version of kubectl
+        command: "curl -L -s https://dl.k8s.io/release/stable.txt"
+        register: kubectl_version
+        changed_when: false
+      
+      - name: Install kubectl
+        get_url:
+          url: "https://dl.k8s.io/release/{{ kubectl_version.stdout }}/bin/linux/amd64/kubectl"
+          dest: /usr/local/bin/kubectl
+          mode: '0755'
+          force: yes  # ensures it downloads again if it already exists
+      
+      - name: Ensure kubectl is executable
+        command: chmod +x /usr/local/bin/kubectl
+      
+      - name: Check kubectl version
+        command: /usr/local/bin/kubectl version --client
+        register: kubectl_version_check
+        changed_when: false
+      
+      - name: Fail if kubectl is not installed correctly
+        fail:
+          msg: "kubectl installation failed or version check failed."
+        when: kubectl_version_check.rc != 0      
 
-    - name: Install Docker
-      yum:
-        name: docker
-        state: present
-
-    - name: Start and enable Docker service
-      systemd:
-        name: docker
-        state: started
-        enabled: true
-
-    - name: Update all packages
-      yum:
-        name: '*'
-        state: latest
-
-    - name: Install required dependencies
-      yum:
-        name:
-          - java-17-amazon-corretto
-          - wget
-        state: present
-
-    - name: Add Jenkins repository
-      yum_repository:
-        name: jenkins
-        description: Jenkins
-        baseurl: https://pkg.jenkins.io/redhat-stable/
-        gpgcheck: yes
-        enabled: yes
-        gpgkey: https://pkg.jenkins.io/redhat/jenkins.io.key
-
-    - name: Clean YUM cache
-      command: yum clean all
-
-    - name: Install Jenkins
-      yum:
-        name: jenkins
-        state: present
-
-    - name: Start and enable Jenkins
-      systemd:
-        name: jenkins
-        state: started
-        enabled: true
-
-    - name: Install unzip
-      yum:
-        name: unzip
-        state: present
-
-    - name: Download Docker Slim
-      get_url:
-        url: https://github.com/slimtoolkit/slim/releases/download/1.40.11/dist_linux.tar.gz
-        dest: /tmp/ds.tar.gz
-
-    - name: Extract Docker Slim
-      unarchive:
-        src: /tmp/ds.tar.gz
-        dest: /tmp/
-        remote_src: yes
-
-    - name: Ensure Docker Slim binaries exist after extraction
-      command: ls -l /tmp/dist_linux/
-      register: ls_output
-
-    - name: Debug output of extracted files
-      debug:
-        var: ls_output.stdout_lines
-
-    - name: Move Docker Slim binary if it exists
-      command: mv /tmp/dist_linux/slim /usr/local/bin/docker-slim
-      when: "'slim' in ls_output.stdout"
-
-    - name: Move Docker Slim Sensor binary if it exists
-      command: mv /tmp/dist_linux/slim-sensor /usr/local/bin/docker-slim-sensor
-      when: "'slim-sensor' in ls_output.stdout"
-
-    - name: Check if Docker Slim binary exists
-      stat:
-        path: /usr/local/bin/docker-slim
-      register: slim_binary
-
-    - name: Fail if Docker Slim binary does not exist
-      fail:
-        msg: "Docker Slim binary is not installed correctly."
-      when: not slim_binary.stat.exists
-
-    - name: Make Docker Slim executable
-      command: chmod +x /usr/local/bin/docker-slim
-
-    - name: Make Docker Slim Sensor executable
-      command: chmod +x /usr/local/bin/docker-slim-sensor
-
-    - name: Print installed versions
-      command: /usr/local/bin/docker-slim --version
-      register: slim_version
-
-    - name: Show Docker Slim version
-      debug:
-        var: slim_version.stdout
-
-    - name: Download SonarQube
-      get_url:
-        url: "https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-9.9.1.69595.zip"
-        dest: /tmp/sonarqube.zip
-
-    - name: Extract SonarQube
-      unarchive:
-        src: /tmp/sonarqube.zip
-        dest: /opt/
-        remote_src: yes
-
-    - name: Create SonarQube user
-      user:
-        name: sonarqube
-        system: yes
-
-    - name: Change ownership of SonarQube directory
-      file:
-        path: /opt/sonarqube-9.9.1.69595
-        owner: sonarqube
-        group: sonarqube
-        state: directory
-        recurse: yes
-
-    - name: Set up SonarQube service
-      copy:
-        dest: /etc/systemd/system/sonarqube.service
-        content: |
-          [Unit]
-          Description=SonarQube service
-          After=syslog.target network.target
-
-          [Service]
-          Type=forking
-          ExecStart=/opt/sonarqube-9.9.1.69595/bin/linux-x86-64/sonar.sh start
-          ExecStop=/opt/sonarqube-9.9.1.69595/bin/linux-x86-64/sonar.sh stop
-          User=sonarqube
-          Group=sonarqube
-          Restart=always
-
-          [Install]
-          WantedBy=multi-user.target
-
-    - name: Reload systemd and start SonarQube service
-      systemd:
-        daemon_reload: yes
-        name: sonarqube
-        enabled: yes
-        state: started
+      - name: Install Helm
+        command: >
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        args:
+          creates: /usr/local/bin/helm
+  
+      - name: Connect to EKS Cluster
+        command: aws eks --region ap-south-1 update-kubeconfig --name EksCluster
+  
