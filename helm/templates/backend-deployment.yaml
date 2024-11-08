@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: {{ .Values.backend.replicas }}
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: {{ .Values.backend.image }}
+          ports:
+            - containerPort: {{ .Values.backend.containerPort }}
+          env:
+            - name: MONGODB_URI
+              value: "{{ .Values.mongodb.mongoUri }}"  # MongoDB URI for connection
+            - name: NODE_ENV
+              value: "production"  # Set the environment to production
+            - name: MONGODB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets  # The secret name
+                  key: mongodbUser      # The key in the secret for MongoDB user
+            - name: MONGODB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets  # The secret name
+                  key: mongodbPassword  # The key in the secret for MongoDB password
+            - name: MONGODB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets  # The secret name
+                  key: mongodbRootPassword  # The key for root password
+            - name: SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets  # The secret name for a custom application secret
+                  key: secretkey  # A custom key to keep your app's secret (e.g., JWT sedcret)

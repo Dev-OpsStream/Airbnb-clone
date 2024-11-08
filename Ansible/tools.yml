@@ -1,5 +1,5 @@
 ---
-  - name: Setup Docker, Jenkins, and Docker Slim
+  - name: Setup Docker, Jenkins, Docker Slim, SonarQube, SonarQube Scanner, Helm, Kubectl, Trivy
     hosts: all
     become: true
     tasks:
@@ -69,11 +69,11 @@
           dest: /tmp/
           remote_src: yes
   
-      - name: Ensure Docker Slim binaries exist after extraction
+      - name: Debug output of extracted files
         command: ls -l /tmp/dist_linux/
         register: ls_output
   
-      - name: Debug output of extracted files
+      - name: Show extracted directory contents
         debug:
           var: ls_output.stdout_lines
   
@@ -84,22 +84,34 @@
       - name: Move Docker Slim Sensor binary if it exists
         command: mv /tmp/dist_linux/slim-sensor /usr/local/bin/docker-slim-sensor
         when: "'slim-sensor' in ls_output.stdout"
+        ignore_errors: yes  # Skip if the slim-sensor binary does not exist
   
       - name: Check if Docker Slim binary exists
         stat:
           path: /usr/local/bin/docker-slim
         register: slim_binary
   
+      - name: Check if Docker Slim Sensor binary exists
+        stat:
+          path: /usr/local/bin/docker-slim-sensor
+        register: slim_sensor_binary
+  
       - name: Fail if Docker Slim binary does not exist
         fail:
           msg: "Docker Slim binary is not installed correctly."
         when: not slim_binary.stat.exists
+  
+      - name: Fail if Docker Slim Sensor binary does not exist
+        fail:
+          msg: "Docker Slim Sensor binary is not installed correctly."
+        when: not slim_sensor_binary.stat.exists
   
       - name: Make Docker Slim executable
         command: chmod +x /usr/local/bin/docker-slim
   
       - name: Make Docker Slim Sensor executable
         command: chmod +x /usr/local/bin/docker-slim-sensor
+        when: slim_sensor_binary.stat.exists  # Only make it executable if it exists
   
       - name: Print installed versions
         command: /usr/local/bin/docker-slim --version
@@ -158,32 +170,70 @@
           name: sonarqube
           enabled: yes
           state: started
-
+  
+      # Tasks to install SonarQube Scanner
+      - name: Download SonarQube Scanner
+        get_url:
+          url: "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.8.0.2856-linux.zip"
+          dest: /tmp/sonar-scanner.zip
+  
+      - name: Extract SonarQube Scanner
+        unarchive:
+          src: /tmp/sonar-scanner.zip
+          dest: /opt/
+          remote_src: yes
+  
+      - name: Rename extracted directory for easier access
+        command: mv /opt/sonar-scanner-4.8.0.2856-linux /opt/sonar-scanner
+        args:
+          creates: "/opt/sonar-scanner"
+  
+      - name: Set up SonarQube Scanner in PATH
+        lineinfile:
+          path: /etc/profile.d/sonar_scanner.sh
+          line: 'export PATH=$PATH:/opt/sonar-scanner/bin'
+          create: yes
+          state: present
+          mode: '0755'
+  
+      - name: Reload environment variables
+        shell: source /etc/profile.d/sonar_scanner.sh
+        args:
+          executable: /bin/bash
+  
+      - name: Verify SonarQube Scanner installation
+        command: /opt/sonar-scanner/bin/sonar-scanner -v
+        register: sonar_scanner_version
+  
+      - name: Show SonarQube Scanner version
+        debug:
+          var: sonar_scanner_version.stdout
+  
       - name: Retrieve latest stable version of kubectl
         command: "curl -L -s https://dl.k8s.io/release/stable.txt"
         register: kubectl_version
         changed_when: false
-      
+  
       - name: Install kubectl
         get_url:
           url: "https://dl.k8s.io/release/{{ kubectl_version.stdout }}/bin/linux/amd64/kubectl"
           dest: /usr/local/bin/kubectl
           mode: '0755'
           force: yes  # ensures it downloads again if it already exists
-      
+  
       - name: Ensure kubectl is executable
         command: chmod +x /usr/local/bin/kubectl
-      
+  
       - name: Check kubectl version
         command: /usr/local/bin/kubectl version --client
         register: kubectl_version_check
         changed_when: false
-      
+  
       - name: Fail if kubectl is not installed correctly
         fail:
           msg: "kubectl installation failed or version check failed."
-        when: kubectl_version_check.rc != 0      
-
+        when: kubectl_version_check.rc != 0
+  
       - name: Install Helm
         command: >
           curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
@@ -192,4 +242,29 @@
   
       - name: Connect to EKS Cluster
         command: aws eks --region ap-south-1 update-kubeconfig --name EksCluster
+        environment:
+          AWS_ACCESS_KEY_ID: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
+          AWS_SECRET_ACCESS_KEY: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
+          AWS_DEFAULT_REGION: ap-south-1
+  
+      # New task to download and install Trivy
+      - name: Download Trivy RPM package
+        get_url:
+          url: https://github.com/aquasecurity/trivy/releases/download/v0.36.0/trivy_0.36.0_Linux-64bit.rpm
+          dest: /tmp/trivy.rpm
+  
+      - name: Install Trivy using yum
+        yum:
+          name: /tmp/trivy.rpm
+          state: present
+          disable_gpg_check: yes
+  
+      - name: Verify Trivy installation
+        command: trivy --version
+        register: trivy_version
+        changed_when: false
+  
+      - name: Show Trivy version
+        debug:
+          var: trivy_version.stdout
   

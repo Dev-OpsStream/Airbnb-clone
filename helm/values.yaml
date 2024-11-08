@@ -1,0 +1,35 @@
+frontend:
+  image: "ramraj214/airbnb-frontend.slim:latest"
+  replicas: 2
+  containerPort: 5173
+  service:
+    type: LoadBalancer  # Service type for frontend
+    port: 80            # Port exposed by the service
+    targetPort: 5173    # Target port inside the container
+
+backend:
+  image: "ramraj214/airbnb-backend:latest"
+  replicas: 2
+  containerPort: 4000
+  service:
+    type: ClusterIP    # Kubernetes service type for backend
+    port: 4000         # Port exposed by the backend service
+    targetPort: 4000   # Target port inside the backend container
+
+mongodb:
+  image: "mongo:latest"
+  replicas: 1
+  containerPort: 27017
+  mongoDbName: "airbnb-db"
+  mongoUri: "mongodb://mongo-service:27017/airbnb-db"
+  service:
+    type: ClusterIP    # Kubernetes service type for MongoDB
+    port: 27017        # Port exposed by MongoDB service
+    targetPort: 27017  # Target port inside the MongoDB container
+
+
+secrets:
+  mongodbRootPassword: "cm9vdHVzZXI="
+  mongodbUser: "cmFtcmFq"
+  mongodbPassword: "QFJhbTA3"
+  secretkey : "jarmar412"

@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo
+spec:
+  replicas: {{ .Values.mongodb.replicas }}
+  selector:
+    matchLabels:
+      app: mongo
+  template:
+    metadata:
+      labels:
+        app: mongo
+    spec:
+      containers:
+        - name: mongo
+          image: {{ .Values.mongodb.image }}
+          ports:
+            - containerPort: {{ .Values.mongodb.containerPort }}
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secrets  # Referencing the Kubernetes secret by name
+                  key: mongodb-username  # Key in the secret for MongoDB root username
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secrets  # Referencing the Kubernetes secret by name
+                  key: mongodb-root-password  # Key in the secret for MongoDB root password
+            - name: MONGO_INITDB_DATABASE
+              value: "airbnb-db"  # Default database name (can be customized)
