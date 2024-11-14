@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: mongo
 spec:
-  replicas: {{ .Values.mongodb.replicas }}
+  replicas: 1  # Number of MongoDB instances
   selector:
     matchLabels:
       app: mongo
@@ -14,19 +14,33 @@ spec:
     spec:
       containers:
         - name: mongo
-          image: {{ .Values.mongodb.image }}
+          image: "mongo:latest"  # Replace with your specific image if needed
           ports:
-            - containerPort: {{ .Values.mongodb.containerPort }}
+            - containerPort: 27017  # MongoDB default port
           env:
             - name: MONGO_INITDB_ROOT_USERNAME
               valueFrom:
                 secretKeyRef:
-                  name: mongo-secrets  # Referencing the Kubernetes secret by name
-                  key: mongodb-username  # Key in the secret for MongoDB root username
+                  name: mongodb-secret  # Secret containing MongoDB credentials
+                  key: mongodbUser  # Correct key for the root username
             - name: MONGO_INITDB_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: mongo-secrets  # Referencing the Kubernetes secret by name
-                  key: mongodb-root-password  # Key in the secret for MongoDB root password
+                  name: mongodb-secret  # Secret containing MongoDB credentials
+                  key: mongodbRootPassword  # Correct key for the root password
             - name: MONGO_INITDB_DATABASE
-              value: "airbnb-db"  # Default database name (can be customized)
+              value: "airbnb-db"  # The database to create upon initialization
+          command:
+            - "mongod"
+            - "--bind_ip"
+            - "0.0.0.0"  # Allow MongoDB to bind on all network interfaces (required in Kubernetes)
+          readinessProbe:
+            tcpSocket:
+              port: 27017  # MongoDB default port
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 27017  # MongoDB default port
+            initialDelaySeconds: 5
+            periodSeconds: 10

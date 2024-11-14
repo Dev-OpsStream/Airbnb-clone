@@ -26,17 +26,17 @@ if (!dbUrl || !secret) {
     process.exit(1);
 }
 
-mongoose.connect(process.env.MONGO_URI || "mongodb://mongo-service:27017/airbnb-db", { useNewUrlParser: true, useUnifiedTopology: true })
+async function main() {
+    mongoose.connect(process.env.MONGO_URI || "mongodb://ramraj:ram07@mongo-service:27017/airbnb-db")
     .then(() => {
         console.log("Connected to DB");
     })
     .catch((err) => {
         console.error("Database connection error:", err);
     });
-
-async function main() {
-    await mongoose.connect(dbUrl);
 }
+
+main();
 
 function getUserDataFromReq(req) {
     return new Promise((resolve, reject) => {
@@ -48,7 +48,7 @@ function getUserDataFromReq(req) {
 }
 
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: process.env.FRONTEND_URL || 'http://localhost:80',
     credentials: true,
 }));
 

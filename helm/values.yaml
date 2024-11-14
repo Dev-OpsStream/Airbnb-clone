@@ -1,15 +1,15 @@
 frontend:
-  image: "ramraj214/airbnb-frontend-v1.slim"  # Frontend image
+  image: "ramraj214/airbnb-frontend:latest"
   replicas: 2
-  containerPort: 80  # Now set to port 80 for production serve
+  containerPort: 80
   service:
     type: LoadBalancer
-    port: 80           # Expose on the standard HTTP port
-    targetPort: 80     # Map to the container's port 80
+    port: 80
+    targetPort: 80
   livenessProbe:
     httpGet:
-      path: /           # Root path, adjust if needed
-      port: 80          # Update the liveness probe to match the exposed port
+      path: /
+      port: 80
     initialDelaySeconds: 10
     periodSeconds: 10
 
@@ -17,6 +17,7 @@ backend:
   image: "ramraj214/airbnb-backend:latest"
   replicas: 2
   containerPort: 4000
+  backendUrl: "http://backend-service:4000"
   service:
     type: ClusterIP
     port: 4000
@@ -27,13 +28,26 @@ backend:
       port: 4000
     initialDelaySeconds: 10
     periodSeconds: 10
+  env:
+    - name: MONGO_URI
+      value: "mongodb://$(MONGODB_USER):$(MONGODB_PASSWORD)@mongo-service:27017/airbnb-db"
+    - name: MONGODB_USER
+      valueFrom:
+        secretKeyRef:
+          name: mongodb-secret
+          key: mongodbUser
+    - name: MONGODB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: mongodb-secret
+          key: mongodbPassword
 
 mongodb:
   image: "mongo:latest"
   replicas: 1
   containerPort: 27017
   mongoDbName: "airbnb-db"
-  mongoUri: "mongodb://mongo:27017/airbnb-db"
+  mongoUri: "mongodb://$(MONGODB_USER):$(MONGODB_PASSWORD)@mongo-service:27017/airbnb-db"
   service:
     type: ClusterIP
     port: 27017
@@ -43,7 +57,9 @@ mongodb:
       mountPath: /data/db
 
 secrets:
-  mongodbRootPassword: "cm9vdHVzZXI="   # Base64 encoded password
-  mongodbUser: "cmFtcmFq"                # Base64 encoded user
-  mongodbPassword: "QFJhbTA3"            # Base64 encoded password
-  secretkey: "amFybWFyNDEy"              # Base64 encoded secret key
+  mongodbRootPassword: cm9vdHVzZXI=      # Base64 encoded root password (ramraj)
+  mongodbUser: cmFtcmFq                     # Base64 encoded user (ramraj)
+  mongodbPassword: cmFtMDc=                 # Base64 encoded password (ram07)
+  secretkey: amFybWFyNDEy
+                            
+          

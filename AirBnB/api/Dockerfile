@@ -1,4 +1,4 @@
-FROM node:20
+FROM node:20-alpine
 
 # Set working directory
 WORKDIR /app
@@ -15,8 +15,11 @@ COPY . .
 # Verify the file structure and contents of the /app directory to check if 'User.js' is copied
 RUN ls -al /app/models
 
+# Install curl (should work on these images)
+RUN apk add --no-cache curl libcurl zlib # for Alpine-based images
+
 # Ensure Node is available
-RUN which node
+RUN which node && curl --version
 
 # Expose the port your app listens on
 EXPOSE 4000

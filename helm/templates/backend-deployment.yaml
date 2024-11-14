@@ -14,31 +14,37 @@ spec:
     spec:
       containers:
         - name: backend
-          image: {{ .Values.backend.image }}
+          image: "{{ .Values.backend.image }}"
           ports:
             - containerPort: {{ .Values.backend.containerPort }}
           env:
-            - name: MONGODB_URI
-              value: "{{ .Values.mongodb.mongoUri }}"  # MongoDB URI for connection
             - name: NODE_ENV
-              value: "production"  # Set the environment to production
+              value: "production"
+            - name: MONGO_URL
+              value: "mongodb://ramraj:ram07@mongo-service:27017/airbnb-db"  # MongoDB URI for connection
             - name: MONGODB_USER
               valueFrom:
                 secretKeyRef:
-                  name: backend-secrets  # The secret name
-                  key: mongodbUser      # The key in the secret for MongoDB user
+                  name: mongodb-secrets  # The secret name
+                  key: mongodbUser      # MongoDB user key
             - name: MONGODB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: backend-secrets  # The secret name
-                  key: mongodbPassword  # The key in the secret for MongoDB password
+                  name: mongodb-secrets  # The secret name
+                  key: mongodbPassword  # MongoDB password key
             - name: MONGODB_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: backend-secrets  # The secret name
-                  key: mongodbRootPassword  # The key for root password
+                  name: mongodb-secrets  # The secret name
+                  key: mongodbRootPassword  # MongoDB root password key
             - name: SECRET
               valueFrom:
                 secretKeyRef:
-                  name: backend-secrets  # The secret name for a custom application secret
-                  key: secretkey  # A custom key to keep your app's secret (e.g., JWT sedcret)
+                  name: mongodb-secrets  # The secret name
+                  key: secretkey  # Application secret key for JWT or other secure uses
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.backend.containerPort }}
+            initialDelaySeconds: 10
+            periodSeconds: 10

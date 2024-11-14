@@ -1,10 +1,10 @@
 # Use the Node.js image (you can use a slim version if space is a concern)
-FROM node:18
+FROM node:20-alpine  
 
 # Set working directory inside the container
 WORKDIR /app
 
-# Copy the package.json and package-lock.json files
+# Copynode:20-alpine   the package.json and package-lock.json files
 COPY package*.json ./
 
 # Clean any existing node_modules and package-lock.json files before installation
@@ -24,6 +24,12 @@ RUN npm run build
 
 # Add a step to list the contents of the dist directory for debugging
 RUN ls -la /app/dist
+
+# Install curl (should work on these images)
+RUN apk add --no-cache curl  # for Alpine-based images
+
+# Ensure Node is available
+RUN which node && curl --version
 
 # Expose the production port (use port 80 in production)
 EXPOSE 80

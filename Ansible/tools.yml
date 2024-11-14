@@ -23,6 +23,7 @@
           name: '*'
           state: latest
   
+      # Task to install required dependencies
       - name: Install required dependencies
         yum:
           name:
@@ -30,28 +31,26 @@
             - wget
           state: present
   
+      # Add Jenkins GPG key
+      - name: Import Jenkins GPG key
+        rpm_key:
+          key: https://pkg.jenkins.io/redhat/jenkins.io.key
+          state: present
+  
+      # Add Jenkins repository
       - name: Add Jenkins repository
         yum_repository:
           name: jenkins
           description: Jenkins
           baseurl: https://pkg.jenkins.io/redhat-stable/
-          gpgcheck: yes
+          gpgcheck: no  # skip gpgcheck since the key is already imported
           enabled: yes
-          gpgkey: https://pkg.jenkins.io/redhat/jenkins.io.key
   
-      - name: Clean YUM cache
-        command: yum clean all
-  
+      # Install Jenkins
       - name: Install Jenkins
         yum:
           name: jenkins
           state: present
-  
-      - name: Start and enable Jenkins
-        systemd:
-          name: jenkins
-          state: started
-          enabled: true
   
       - name: Install unzip
         yum:
@@ -61,13 +60,15 @@
       - name: Download Docker Slim
         get_url:
           url: https://github.com/slimtoolkit/slim/releases/download/1.40.11/dist_linux.tar.gz
-          dest: /tmp/ds.tar.gz
+          dest: "/tmp/docker-slim.tar.gz"
+        register: download_result
   
       - name: Extract Docker Slim
         unarchive:
-          src: /tmp/ds.tar.gz
-          dest: /tmp/
+          src: "/tmp/docker-slim.tar.gz"
+          dest: "/tmp/"
           remote_src: yes
+        when: download_result is succeeded
   
       - name: Debug output of extracted files
         command: ls -l /tmp/dist_linux/
@@ -77,14 +78,21 @@
         debug:
           var: ls_output.stdout_lines
   
-      - name: Move Docker Slim binary if it exists
-        command: mv /tmp/dist_linux/slim /usr/local/bin/docker-slim
+      # Move Docker Slim binary to /usr/local/bin/
+      - name: Move Docker Slim binary to /usr/local/bin/
+        command: mv /tmp/dist_linux/slim /usr/local/bin/
         when: "'slim' in ls_output.stdout"
   
-      - name: Move Docker Slim Sensor binary if it exists
-        command: mv /tmp/dist_linux/slim-sensor /usr/local/bin/docker-slim-sensor
+      # Move Docker Slim Sensor binary to /usr/local/bin/
+      - name: Move Docker Slim Sensor binary to /usr/local/bin/
+        command: mv /tmp/dist_linux/slim-sensor /usr/local/bin/
         when: "'slim-sensor' in ls_output.stdout"
-        ignore_errors: yes  # Skip if the slim-sensor binary does not exist
+        ignore_errors: yes  # Skip if slim-sensor binary does not exist
+  
+      # Move Docker Slim main binary to /usr/local/bin/
+      - name: Move Docker Slim main binary to /usr/local/bin/
+        command: mv /tmp/dist_linux/docker-slim /usr/local/bin/
+        when: "'docker-slim' in ls_output.stdout"
   
       - name: Check if Docker Slim binary exists
         stat:
@@ -235,8 +243,7 @@
         when: kubectl_version_check.rc != 0
   
       - name: Install Helm
-        command: >
-          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        shell: "curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash"
         args:
           creates: /usr/local/bin/helm
   
@@ -246,18 +253,19 @@
           AWS_ACCESS_KEY_ID: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
           AWS_SECRET_ACCESS_KEY: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
           AWS_DEFAULT_REGION: ap-south-1
+          KUBECONFIG: /home/ec2-user/.kube/config
   
-      # New task to download and install Trivy
-      - name: Download Trivy RPM package
+      # Install Trivy
+      - name: Download Trivy
         get_url:
-          url: https://github.com/aquasecurity/trivy/releases/download/v0.36.0/trivy_0.36.0_Linux-64bit.rpm
-          dest: /tmp/trivy.rpm
+          url: https://github.com/aquasecurity/trivy/releases/download/v0.22.0/trivy_0.22.0_Linux-64bit.tar.gz
+          dest: "/tmp/trivy.tar.gz"
   
-      - name: Install Trivy using yum
-        yum:
-          name: /tmp/trivy.rpm
-          state: present
-          disable_gpg_check: yes
+      - name: Extract Trivy
+        unarchive:
+          src: "/tmp/trivy.tar.gz"
+          dest: "/usr/local/bin/"
+          remote_src: yes
   
       - name: Verify Trivy installation
         command: trivy --version
@@ -266,5 +274,4 @@
   
       - name: Show Trivy version
         debug:
-          var: trivy_version.stdout
-  
+          var: trivy_version.stdout   
