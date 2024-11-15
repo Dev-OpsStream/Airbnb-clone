@@ -27,7 +27,7 @@ if (!dbUrl || !secret) {
 }
 
 async function main() {
-    mongoose.connect(process.env.MONGO_URI || "mongodb://ramraj:ram07@mongo-service:27017/airbnb-db")
+    mongoose.connect(process.env.MONGO_URL || "mongodb://ramraj:ram07@mongo-service:27017/airbnb-db")
     .then(() => {
         console.log("Connected to DB");
     })
