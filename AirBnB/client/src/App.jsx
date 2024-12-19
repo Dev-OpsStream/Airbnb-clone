@@ -13,7 +13,8 @@ import PlacePage from './pages/placePage'
 import BookingsPage from './pages/BookingsPage'
 import BookingPage from './pages/BookingPage'
 
-axios.defaults.baseURL = "http://localhost:4000";
+
+axios.defaults.baseURL = "http://backend.default.svc.cluster.local:4000";  // External access to backend
 axios.defaults.withCredentials = true;
 
 function App() {

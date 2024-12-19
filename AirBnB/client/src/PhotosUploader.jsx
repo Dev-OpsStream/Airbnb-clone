@@ -1,6 +1,5 @@
 import { useState } from "react";
 import axios from "axios";
-
 export default function PhotosUploader({ addedPhotos, onChange }) {
     const [photoLink, setPhotoLink] = useState('');
 
@@ -55,7 +54,7 @@ export default function PhotosUploader({ addedPhotos, onChange }) {
                         <div className="relative h-40 flex items-center justify-center rounded-xl overflow-hidden" key={link + index}>
                             <img
                                 className="rounded-xl w-full h-full object-cover transform transition duration-500 hover:scale-105"
-                                src={`http://localhost:4000/uploads/${link}`}
+                                src={`http://backend.default.svc.cluster.local:4000/uploads/${link}`}
                                 alt={`Uploaded img ${index + 1}`}
                             />
                             <button onClick={(ev) => removePhoto(ev, link)} className="cursor-pointer absolute bottom-1 right-1 text-white bg-black bg-opacity-50 rounded-2xl py-2 px-3">

@@ -27,7 +27,7 @@ if (!dbUrl || !secret) {
 }
 
 async function main() {
-    mongoose.connect(process.env.MONGO_URL || "mongodb://ramraj:ram07@mongo-service:27017/airbnb-db")
+    mongoose.connect(process.env.MONGO_URL || "mongodb://ramraj:ram07@mongo-service.default.svc.cluster.local:27017/airbnb-db")
     .then(() => {
         console.log("Connected to DB");
     })
@@ -48,9 +48,9 @@ function getUserDataFromReq(req) {
 }
 
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:80',
+    origin: process.env.FRONTEND_URL,
     credentials: true,
-}));
+  }));  
 
 app.use(cookieParser());
 app.use(express.json());
@@ -60,6 +60,10 @@ app.get('/test', (req, res) => {
     res.json("test ok");
 });
 
+app.get('/health', (req, res) => {
+    res.status(200).send('OK');
+});
+  
 app.post('/register', async (req, res) => {
     const { name, email, password } = req.body;
     try {
@@ -345,7 +349,6 @@ app.delete('/places/:id', async (req, res) => {
     }
 });
 
-
-app.listen(4000, () => {
-    console.log(`Server is running on http://localhost:4000`);
+app.listen(4000,"0.0.0.0", () => {
+  console.log(`Server running on port 4000. CORS allowed for backend-service:4000`);
 });

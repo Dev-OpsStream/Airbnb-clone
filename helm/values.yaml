@@ -12,12 +12,14 @@ frontend:
       port: 80
     initialDelaySeconds: 10
     periodSeconds: 10
+  env:
+    - name: BACKEND_URL
+      value: "http://backend.default.svc.cluster.local:4000" 
 
 backend:
   image: "ramraj214/airbnb-backend:latest"
   replicas: 2
   containerPort: 4000
-  backendUrl: "http://backend-service:4000"
   service:
     type: ClusterIP
     port: 4000
@@ -29,6 +31,9 @@ backend:
     initialDelaySeconds: 10
     periodSeconds: 10
   env:
+    env:
+    - name: FRONTEND_URL
+      value: "http://backend.default.svc.cluster.local:4000"
     - name: MONGO_URI
       value: "mongodb://$(MONGODB_USER):$(MONGODB_PASSWORD)@mongo-service:27017/airbnb-db"
     - name: MONGODB_USER
@@ -62,4 +67,3 @@ secrets:
   mongodbPassword: cmFtMDc=                 # Base64 encoded password (ram07)
   secretkey: amFybWFyNDEy
                             
-          
